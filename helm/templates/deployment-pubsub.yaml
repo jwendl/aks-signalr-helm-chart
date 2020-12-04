@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-deployment
+  labels:
+    app: {{ .Values.label.name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.label.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.label.name }}
+        environment: {{ .Values.environment }}
+    spec:
+      containers:
+      - name: {{ .Values.container.name }}
+        image: {{ .Values.container.image }}:{{ .Values.container.tag }}
+        imagePullPolicy: {{ .Values.container.pullPolicy }}
+        ports:
+          - containerPort: {{ .Values.container.port }}
+        env:
+          - name: apphost
+            value: {{ .Values.apphost }}
+          - name: appenvironment
+            value: {{ .Values.environment }}
+          - name: ApplicationInsights__InstrumentationKey
+            valueFrom:
+              secretKeyRef:
+                name: ai-key
+                key: key
+          - name: AzureAdOptions__Authority
+            value: {{ .Values.aadOptions.authority }}
+          - name: AzureAdOptions__ValidIssuer
+            value: {{ .Values.aadOptions.validIssuer }}
+          - name: AzureAdOptions__ValidAudience
+            value: {{ .Values.aadOptions.validAudieence }}
+          - name: RedisBackplaneOptions__Host
+            value: {{ .Values.redis.backplane.host }}
+          - name: RedisBackplaneOptions__Password
+            valueFrom:
+              secretKeyRef:
+                name: redis-backplane
+                key: redis-password
+          - name: RedisCacheOptions__Host
+            value: {{ .Values.redis.cache.host }}
+          - name: RedisCacheOptions__Password
+            valueFrom:
+              secretKeyRef:
+                name: redis-cache
+                key: redis-password
+        volumeMounts:
+        - name: secrets-store-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+      volumes:
+        - name: secrets-store-inline
+          csi:
+            driver: secrets-store.csi.k8s.io
+            readOnly: true
+            volumeAttributes:
+              secretProviderClass: {{ .Release.Name }}-secrets
